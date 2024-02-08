@@ -1,246 +1,227 @@
-var splunkjs    = require('../../index');
-var Async       = splunkjs.Async;
-var utils       = splunkjs.Utils;
 
-var idCounter = 0;
-var getNextId = function() {
-    return "id" + (idCounter++) + "_" + ((new Date()).valueOf());
-};
+exports.setup = function (svc, loggedOutSvc) {
+    var assert = require('chai').assert;
+    var splunkjs = require('../../index');
+    var utils = splunkjs.Utils;
+    var idCounter = 0;
 
-module.exports = function (svc, loggedOutSvc) {
-    return {
-        setUp: function(done) {
-            this.service = svc;
-            this.loggedOutService = loggedOutSvc;
-            done();
-        },
+    var getNextId = function () {
+        return "id" + (idCounter++) + "_" + ((new Date()).valueOf());
+    };
+    return (
+        describe("User Tests", () => {
 
-        tearDown: function(done) {
-            this.service.logout(done);
-        },
+            beforeEach(function () {
+                this.service = svc;
+                this.loggedOutService = loggedOutSvc;
+            })
 
-        "Callback#Current user": function(test) {
-            var service = this.service;
+            afterEach(async function () {
+                await this.service.logout();
+            })
 
-            service.currentUser(function(err, user) {
-                test.ok(!err);
-                test.ok(user);
-                test.strictEqual(user.name, service.username);
-                test.done();
-            });
-        },
+            it("Current user", async function () {
+                var service = this.service;
+                let user = await service.currentUser();
+                assert.ok(user);
+                assert.strictEqual(user.name, service.username);
+            })
 
-        "Callback#Current user fails": function(test) {
-            var service = this.loggedOutService;
-
-            service.currentUser(function(err, user) {
-                test.ok(err);
-                test.done();
-            });
-        },
-
-        "Callback#List users": function(test) {
-            var service = this.service;
-
-            service.users().fetch(function(err, users) {
-                var userList = users.list();
-                test.ok(!err);
-                test.ok(users);
-
-                test.ok(userList);
-                test.ok(userList.length > 0);
-                test.done();
-            });
-        },
-
-        "Callback#create user failure": function(test) {
-            this.loggedOutService.users().create(
-                {name: "jssdk_testuser", password: "abcdefg!", roles: "user"},
-                function(err, response) {
-                    test.ok(err);
-                    test.done();
+            it("Current user fails", async function () {
+                var service = this.loggedOutService;
+                let res
+                try {
+                    res = await service.currentUser();
+                } catch (err) {
+                    assert.ok(err);
                 }
-            );
-        },
+                assert.ok(!res);
+            })
 
-        "Callback#Create + update + delete user": function(test) {
-            var service = this.service;
-            var name = "jssdk_testuser";
+            it("List users", async function () {
+                var service = this.service;
+                let users = await service.users().fetch();
+                let userList = users.list();
+                assert.ok(users);
+                assert.ok(userList);
+                assert.ok(userList.length > 0);
+            })
 
-            Async.chain([
-                    function(done) {
-                        service.users().create({name: "jssdk_testuser", password: "abcdefg!", roles: "user"}, done);
-                    },
-                    function(user, done) {
-                        test.ok(user);
-                        test.strictEqual(user.name, name);
-                        test.strictEqual(user.properties().roles.length, 1);
-                        test.strictEqual(user.properties().roles[0], "user");
-
-                        user.update({realname: "JS SDK", roles: ["admin", "user"]}, done);
-                    },
-                    function(user, done) {
-                        test.ok(user);
-                        test.strictEqual(user.properties().realname, "JS SDK");
-                        test.strictEqual(user.properties().roles.length, 2);
-                        test.strictEqual(user.properties().roles[0], "admin");
-                        test.strictEqual(user.properties().roles[1], "user");
-
-                        user.remove(done);
-                    }
-                ],
-                function(err) {
-                    test.ok(!err);
-                    test.done();
+            it("Create user failure", async function () {
+                let res;
+                try {
+                    res = await this.loggedOutService.users().create(
+                        { name: "jssdk_testuser", password: "abcdefg!", roles: "user" });
+                } catch (err) {
+                    assert.ok(err);
                 }
-            );
-        },
+                assert.ok(!res);
+            })
 
-        "Callback#Roles": function(test) {
-            var service = this.service;
-            var name = "jssdk_testuser_" + getNextId();
+            it("User - Create, update and delete user", async function () {
+                var service = this.service;
+                let name = "jssdk_testuser";
+                let users = service.users();
+                let user = await users.create({ name: "jssdk_testuser", password: "abcdefg!", roles: "user" });
+                assert.ok(user);
+                assert.strictEqual(user.name, name);
+                assert.strictEqual(user.properties().roles.length, 1);
+                assert.strictEqual(user.properties().roles[0], "user");
 
-            Async.chain([
-                    function(done) {
-                        service.users().create({name: name, password: "abcdefg!", roles: "user"}, done);
-                    },
-                    function(user, done) {
-                        test.ok(user);
-                        test.strictEqual(user.name, name);
-                        test.strictEqual(user.properties().roles.length, 1);
-                        test.strictEqual(user.properties().roles[0], "user");
+                let updatedUser = await user.update({ realname: "JS SDK", roles: ["admin", "user"] });
+                assert.ok(updatedUser);
+                assert.strictEqual(updatedUser.properties().realname, "JS SDK");
+                assert.strictEqual(updatedUser.properties().roles.length, 2);
+                assert.strictEqual(updatedUser.properties().roles[0], "admin");
+                assert.strictEqual(updatedUser.properties().roles[1], "user");
 
-                        user.update({roles: ["admin", "user"]}, done);
-                    },
-                    function(user, done) {
-                        test.ok(user);
-                        test.strictEqual(user.properties().roles.length, 2);
-                        test.strictEqual(user.properties().roles[0], "admin");
-                        test.strictEqual(user.properties().roles[1], "user");
+                await updatedUser.remove();
+            })
 
-                        user.update({roles: "user"}, done);
-                    },
-                    function(user, done) {
-                        test.ok(user);
-                        test.strictEqual(user.properties().roles.length, 1);
-                        test.strictEqual(user.properties().roles[0], "user");
+            it("User - Roles", async function () {
+                var service = this.service;
+                let name = "jssdk_testuser_" + getNextId();
 
-                        user.update({roles: "__unknown__"}, done);
-                    }
-                ],
-                function(err) {
-                    test.ok(err);
-                    test.strictEqual(err.status, 400);
-                    test.done();
+                let user = await service.users().create({ name: name, password: "abcdefg!", roles: "user" });
+                assert.ok(user);
+                assert.strictEqual(user.name, name);
+                assert.strictEqual(user.properties().roles.length, 1);
+                assert.strictEqual(user.properties().roles[0], "user");
+
+                user = await user.update({ roles: ["admin", "user"] });
+                assert.ok(user);
+                assert.strictEqual(user.properties().roles.length, 2);
+                assert.strictEqual(user.properties().roles[0], "admin");
+                assert.strictEqual(user.properties().roles[1], "user");
+
+                user = await user.update({ roles: "user" });
+                assert.ok(user);
+                assert.strictEqual(user.properties().roles.length, 1);
+                assert.strictEqual(user.properties().roles[0], "user");
+                let res;
+                try {
+                    res = await user.update({ roles: "__unknown__" });
+                } catch (error) {
+                    assert.ok(error);
+                    assert.strictEqual(error[0].status, 400);
                 }
-            );
-        },
+                assert.ok(!res);
+            })
 
-        "Callback#Passwords": function(test) {
-            var service = this.service;
-            var newService = null;
-            var name = "jssdk_testuser_" + getNextId();
+            it("User - Passwords", async function () {
+                var service = this.service;
+                let name = "jssdk_testuser_" + getNextId();
 
-            var firstPassword = "abcdefg!";
-            var secondPassword = "hijklmn!";
+                let firstPassword = "abcdefg!";
+                let secondPassword = "hijklmn!";
 
-            var useOldPassword = false;
+                let useOldPassword = false;
 
-            Async.chain([
-                    function (done) {
-                        service.serverInfo(done);
-                    },
-                    function (info, done) {
-                        var versionParts = info.properties().version.split(".");
+                let info = await service.serverInfo();
+                let versionParts = info.properties().version.split(".");
 
-                        var isDevBuild = versionParts.length === 1;
-                        var newerThan72 = (parseInt(versionParts[0], 10) >= 7 &&  parseInt(versionParts[1], 10) >= 2);
+                let isDevBuild = versionParts.length === 1;
+                let newerThan72 = (parseInt(versionParts[0], 10) > 7 ||
+                    (parseInt(versionParts[0], 10) === 7 && parseInt(versionParts[1], 10) >= 2));
 
-                        if (isDevBuild || newerThan72) {
-                            useOldPassword = true;
-                        }
-                        done();
-                    },
-                    function(done) {
-                        service.users().create({name: name, password: firstPassword, roles: "user"}, done);
-                    },
-                    function(user, done) {
-                        test.ok(user);
-                        test.strictEqual(user.name, name);
-                        test.strictEqual(user.properties().roles.length, 1);
-                        test.strictEqual(user.properties().roles[0], "user");
-
-                        newService = new splunkjs.Service(service.http, {
-                            username: name,
-                            password: firstPassword,
-                            host: service.host,
-                            port: service.port,
-                            scheme: service.scheme,
-                            version: service.version
-                        });
-
-                        newService.login(Async.augment(done, user));
-                    },
-                    function(success, user, done) {
-                        test.ok(success);
-                        test.ok(user);
-
-                        var body = {
-                            password: secondPassword
-                        };
-                        if (useOldPassword) {
-                            body['oldpassword'] = firstPassword;
-                        }
-
-                        user.update(body, done);
-                    },
-                    function(user, done) {
-                        newService.login(function(err, success) {
-                            test.ok(err);
-                            test.ok(!success);
-
-                            var body = {
-                                password: firstPassword
-                            };
-                            if (useOldPassword) {
-                                body['oldpassword'] = secondPassword;
-                            }
-
-                            user.update(body, done);
-                        });
-                    },
-                    function(user, done) {
-                        test.ok(user);
-                        newService.login(done);
-                    }
-                ],
-                function(err) {
-                    test.ok(!err, JSON.stringify(err));
-                    test.done();
+                if (isDevBuild || newerThan72) {
+                    useOldPassword = true;
                 }
-            );
-        },
+                let user = await service.users().create({ name: name, password: firstPassword, roles: "user" });
+                assert.ok(user);
+                assert.strictEqual(user.name, name);
+                assert.strictEqual(user.properties().roles.length, 1);
+                assert.strictEqual(user.properties().roles[0], "user");
 
-        "Callback#delete test users": function(test) {
-            var users = this.service.users();
-            users.fetch(function(err, users) {
-                var userList = users.list();
+                let newService = new splunkjs.Service(service.http, {
+                    username: name,
+                    password: firstPassword,
+                    host: service.host,
+                    port: service.port,
+                    scheme: service.scheme,
+                    version: service.version
+                });
+                success = await newService.login();
+                assert.ok(success);
+                assert.ok(user);
+                let body = {
+                    password: secondPassword
+                };
+                if (useOldPassword) {
+                    body['oldpassword'] = firstPassword;
+                }
+                user = await user.update(body);
+                try {
+                    let res = await newService.login();;
+                    assert.ok(!res);
+                } catch (error) {
+                    assert.ok(error);
+                }
+                body = {
+                    password: firstPassword
+                };
+                if (useOldPassword) {
+                    body['oldpassword'] = secondPassword;
+                }
+                user = await user.update(body);
+                assert.ok(user);
+                await newService.login();
+            })
 
-                Async.parallelEach(
+            it("Delete test users", async function () {
+                let users = this.service.users();
+                users = await users.fetch();
+                let userList = users.list();
+                let err = await utils.parallelEach(
                     userList,
-                    function(user, idx, callback) {
+                    async function (user, idx) {
                         if (utils.startsWith(user.name, "jssdk_")) {
-                            user.remove(callback);
+                            await user.remove();
                         }
-                        else {
-                            callback();
-                        }
-                    }, function(err) {
-                        test.ok(!err);
-                        test.done();
                     }
                 );
-            });
-        }
-    };
+                assert.ok(!err);
+            })
+        })
+    );
 };
+
+if (module.id === __filename && module.parent.id.includes('mocha')) {
+    var splunkjs = require('../../index');
+    var options = require('../cmdline');
+
+    let cmdline = options.create().parse(process.argv);
+
+    // If there is no command line, we should return
+    if (!cmdline) {
+        throw new Error("Error in parsing command line parameters");
+    }
+
+    let svc = new splunkjs.Service({
+        scheme: cmdline.opts.scheme,
+        host: cmdline.opts.host,
+        port: cmdline.opts.port,
+        username: cmdline.opts.username,
+        password: cmdline.opts.password,
+        version: cmdline.opts.version
+    });
+
+    let loggedOutSvc = new splunkjs.Service({
+        scheme: cmdline.opts.scheme,
+        host: cmdline.opts.host,
+        port: cmdline.opts.port,
+        username: cmdline.opts.username,
+        password: cmdline.opts.password + 'wrong',
+        version: cmdline.opts.version
+    });
+
+    // Exports tests on a successful login
+    module.exports = new Promise(async (resolve, reject) => {
+        try {
+            await svc.login();
+            return resolve(exports.setup(svc, loggedOutSvc))
+        } catch (error) {
+            throw new Error("Login failed - not running tests", error || "");
+        }
+    });
+}

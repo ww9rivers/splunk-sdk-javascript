@@ -1,415 +1,435 @@
-var splunkjs    = require('../../index');
-var Async       = splunkjs.Async;
-var utils       = splunkjs.Utils;
-var tutils      = require('../utils');
 
-var idCounter = 0;
-var getNextId = function() {
-    return "id" + (idCounter++) + "_" + ((new Date()).valueOf());
-};
+exports.setup = function (svc, loggedOutSvc) {
+    var assert = require('chai').assert;
+    var splunkjs = require('../../index');
+    var tutils = require('../utils');
+    var utils = splunkjs.Utils;
+    var idCounter = 0;
+    var getNextId = function () {
+        return "id" + (idCounter++) + "_" + ((new Date()).valueOf());
+    };
+    return (
+        describe("Saved Search Tests", () => {
+            beforeEach(function () {
+                this.service = svc;
+                this.loggedOutService = loggedOutSvc;
+            })
 
-module.exports = function (svc, loggedOutSvc) {
-    return {
-        setUp: function(done) {
-            this.service = svc;
-            this.loggedOutService = loggedOutSvc;
-            done();
-        },
+            it("list", async function () {
+                let searches = this.service.savedSearches();
+                searches = await searches.fetch();
+                let savedSearches = searches.list();
+                assert.ok(savedSearches.length > 0);
 
-        "Callback#list": function(test) {
-            var searches = this.service.savedSearches();
-            searches.fetch(function(err, searches) {
-                var savedSearches = searches.list();
-                test.ok(savedSearches.length > 0);
+                for (let i = 0; i < savedSearches.length; i++) {
+                    assert.ok(savedSearches[i]);
+                };
+            })
 
-                for(var i = 0; i < savedSearches.length; i++) {
-                    test.ok(savedSearches[i]);
+            it("contains", async function () {
+                let searches = this.service.savedSearches();
+                searches = await searches.fetch();
+                let search = searches.item("Errors in the last hour");
+                assert.ok(search);
+            })
+
+            it("suppress", async function () {
+                let searches = this.service.savedSearches();
+                searches = await searches.fetch();
+                let search = searches.item("Errors in the last hour");
+                assert.ok(search);
+                await search.suppressInfo();
+            })
+
+            it("list limit count", async function () {
+                let searches = this.service.savedSearches();
+                searches = await searches.fetch({ count: 2 });
+                let savedSearches = searches.list();
+                assert.strictEqual(savedSearches.length, 2);
+
+                for (let i = 0; i < savedSearches.length; i++) {
+                    assert.ok(savedSearches[i]);
                 }
+            })
 
-                test.done();
-            });
-        },
+            it("list filter", async function () {
+                let searches = this.service.savedSearches();
+                searches = await searches.fetch({ search: "Error" });
+                let savedSearches = searches.list();
+                assert.ok(savedSearches.length > 0);
 
-        "Callback#contains": function(test) {
-            var searches = this.service.savedSearches();
-            searches.fetch(function(err, searches) {
-                var search = searches.item("Errors in the last hour");
-                test.ok(search);
-
-                test.done();
-            });
-        },
-
-        "Callback#suppress": function(test) {
-            var searches = this.service.savedSearches();
-            searches.fetch(function(err, searches) {
-                var search = searches.item("Errors in the last hour");
-                test.ok(search);
-
-                search.suppressInfo(function(err, info, search) {
-                    test.ok(!err);
-                    test.done();
-                });
-            });
-        },
-
-        "Callback#list limit count": function(test) {
-            var searches = this.service.savedSearches();
-            searches.fetch({count: 2}, function(err, searches) {
-                var savedSearches = searches.list();
-                test.strictEqual(savedSearches.length, 2);
-
-                for(var i = 0; i < savedSearches.length; i++) {
-                    test.ok(savedSearches[i]);
+                for (let i = 0; i < savedSearches.length; i++) {
+                    assert.ok(savedSearches[i]);
                 }
+            })
 
-                test.done();
-            });
-        },
+            it("list offset", async function () {
+                let searches = this.service.savedSearches();
+                searches = await searches.fetch({ offset: 2, count: 1 });
+                let savedSearches = searches.list();
+                assert.strictEqual(searches.paging().offset, 2);
+                assert.strictEqual(searches.paging().perPage, 1);
+                assert.strictEqual(savedSearches.length, 1);
 
-        "Callback#list filter": function(test) {
-            var searches = this.service.savedSearches();
-            searches.fetch({search: "Error"}, function(err, searches) {
-                var savedSearches = searches.list();
-                test.ok(savedSearches.length > 0);
-
-                for(var i = 0; i < savedSearches.length; i++) {
-                    test.ok(savedSearches[i]);
+                for (let i = 0; i < savedSearches.length; i++) {
+                    assert.ok(savedSearches[i]);
                 }
+            })
 
-                test.done();
-            });
-        },
+            it("create, modify and delete", async function () {
+                let name = "jssdk_savedsearch3";
+                let originalSearch = "search * | head 1";
+                let updatedSearch = "search * | head 10";
+                let updatedDescription = "description";
 
-        "Callback#list offset": function(test) {
-            var searches = this.service.savedSearches();
-            searches.fetch({offset: 2, count: 1}, function(err, searches) {
-                var savedSearches = searches.list();
-                test.strictEqual(searches.paging().offset, 2);
-                test.strictEqual(searches.paging().perPage, 1);
-                test.strictEqual(savedSearches.length, 1);
+                let searches = this.service.savedSearches({ owner: this.service.username, app: "sdkappcollection" });
+                let search = await searches.create({ search: originalSearch, name: name });
+                assert.ok(search);
+                assert.strictEqual(search.name, name);
+                assert.strictEqual(search.properties().search, originalSearch);
+                assert.ok(!search.properties().description);
 
-                for(var i = 0; i < savedSearches.length; i++) {
-                    test.ok(savedSearches[i]);
+                search = await search.update({ search: updatedSearch });
+                assert.ok(search);
+                assert.strictEqual(search.name, name);
+                assert.strictEqual(search.properties().search, updatedSearch);
+                assert.ok(!search.properties().description);
+
+                search = await search.update({ description: updatedDescription });
+                assert.ok(search);
+                assert.strictEqual(search.name, name);
+                assert.strictEqual(search.properties().search, updatedSearch);
+                assert.strictEqual(search.properties().description, updatedDescription);
+
+                search = await search.fetch();
+                // Verify that we have the required fields
+                assert.ok(search.fields().optional.length > 1);
+                assert.ok(utils.indexOf(search.fields().optional, "disabled") > -1);
+
+                await search.remove();
+            })
+
+            it("dispatch error", async function () {
+                let name = "jssdk_savedsearch_" + getNextId();
+                let search = new splunkjs.Service.SavedSearch(
+                    this.loggedOutService,
+                    name,
+                    { owner: "nobody", app: "search" }
+                );
+                let res;
+                try {
+                    res = await search.dispatch();
+                } catch (err) {
+                    assert.ok(err);
                 }
+                assert.ok(!res);
+            })
 
-                test.done();
+            it("dispatch omitting optional arguments", async function () {
+                let name = "jssdk_savedsearch_" + getNextId();
+                let originalSearch = "search index=_internal | head 1";
+
+                let searches = this.service.savedSearches({ owner: this.service.username, app: "sdkappcollection" });
+                let search = await searches.create({ search: originalSearch, name: name });
+                assert.ok(search);
+                assert.strictEqual(search.name, name);
+                assert.strictEqual(search.properties().search, originalSearch);
+                assert.ok(!search.properties().description);
+                [job, search] = await search.dispatch();
+                assert.ok(job);
+                assert.ok(search);
+            })
+
+            it("history with pagination", async function () {
+                let name = "jssdk_savedsearch_" + getNextId();
+                let originalSearch = "search index=_internal | head 1";
+                let searches = this.service.savedSearches({ owner: this.service.username, app: "sdkappcollection" });
+                let search = await searches.create({ search: originalSearch, name: name });
+                assert.ok(search);
+                [job, search] = await search.dispatch();
+                assert.ok(job);
+                assert.ok(search);
+                await tutils.pollUntil(
+                    job,
+                    () => job.properties()["isDone"],
+                    10
+                );
+                assert.ok(job);
+                [jobs, search] = await search.history({ count: 1 });
+                assert.ok(jobs.length > 0);
+                assert.equal(jobs.length, 1);
             });
-        },
 
-        "Callback#create + modify + delete saved search": function(test) {
-            var name = "jssdk_savedsearch";
-            var originalSearch = "search * | head 1";
-            var updatedSearch = "search * | head 10";
-            var updatedDescription = "description";
-
-            var searches = this.service.savedSearches({owner: this.service.username, app: "sdk-app-collection"});
-
-            Async.chain([
-                    function(done) {
-                        searches.create({search: originalSearch, name: name}, done);
-                    },
-                    function(search, done) {
-                        test.ok(search);
-
-                        test.strictEqual(search.name, name);
-                        test.strictEqual(search.properties().search, originalSearch);
-                        test.ok(!search.properties().description);
-
-                        search.update({search: updatedSearch}, done);
-                    },
-                    function(search, done) {
-                        test.ok(search);
-                        test.ok(search);
-
-                        test.strictEqual(search.name, name);
-                        test.strictEqual(search.properties().search, updatedSearch);
-                        test.ok(!search.properties().description);
-
-                        search.update({description: updatedDescription}, done);
-                    },
-                    function(search, done) {
-                        test.ok(search);
-                        test.ok(search);
-
-                        test.strictEqual(search.name, name);
-                        test.strictEqual(search.properties().search, updatedSearch);
-                        test.strictEqual(search.properties().description, updatedDescription);
-
-                        search.fetch(done);
-                    },
-                    function(search, done) {
-                        // Verify that we have the required fields
-                        test.ok(search.fields().optional.length > 1);
-                        test.ok(utils.indexOf(search.fields().optional, "disabled") > -1);
-
-                        search.remove(done);
-                    }
-                ],
-                function(err) {
-                    test.ok(!err);
-                    test.done();
+            it("history error", async function () {
+                const name = "jssdk_savedsearch_" + getNextId();
+                let search = new splunkjs.Service.SavedSearch(
+                    this.loggedOutService,
+                    name,
+                    { owner: "nobody", app: "search", sharing: "system" }
+                );
+                let res;
+                try {
+                    res = await search.history();
+                } catch (err) {
+                    assert.ok(err);
                 }
-            );
-        },
+                assert.ok(!res);
+            })
 
-        "Callback#dispatch error": function(test) {
-            var name = "jssdk_savedsearch_" + getNextId();
-            var originalSearch = "search index=_internal | head 1";
-            var search = new splunkjs.Service.SavedSearch(
-                this.loggedOutService,
-                name,
-                {owner: "nobody", app: "search"}
-            );
-            search.dispatch(function(err) {
-                test.ok(err);
-                test.done();
-            });
-        },
+            it("update error", async function () {
+                let name = "jssdk_savedsearch_" + getNextId();
+                let search = new splunkjs.Service.SavedSearch(
+                    this.loggedOutService,
+                    name,
+                    { owner: "nobody", app: "search", sharing: "system" }
+                );
+                let res;
+                try {
+                    res = await search.update({});
+                } catch (err) {
+                    assert.ok(err);
+                }
+                assert.ok(!res);
+            })
 
-        "Callback#dispatch omitting optional arguments": function(test) {
-            var name = "jssdk_savedsearch_" + getNextId();
-            var originalSearch = "search index=_internal | head 1";
+            it("oneshot requires search string", async function () {
+                let res;
+                try {
+                    res = await this.service.oneshotSearch({ name: "jssdk_oneshot_" + getNextId() });
+                } catch (error) {
+                    assert.ok(error);
+                }
+                assert.ok(!res);
+            })
 
-            var searches = this.service.savedSearches({owner: this.service.username, app: "sdk-app-collection"});
+            it("Create, dispatch and history", async function () {
+                let name = "jssdk_savedsearch_" + getNextId();
+                let originalSearch = "search index=_internal | head 1";
 
-            Async.chain(
-                [function(done) {
-                    searches.create({search: originalSearch, name: name}, done);
-                },
-                    function(search, done) {
-                        test.ok(search);
-
-                        test.strictEqual(search.name, name);
-                        test.strictEqual(search.properties().search, originalSearch);
-                        test.ok(!search.properties().description);
-
-                        search.dispatch(done);
+                let searches = this.service.savedSearches({ owner: this.service.username, app: "sdkappcollection" });
+                let search = await searches.create({ search: originalSearch, name: name });
+                assert.ok(search);
+                assert.strictEqual(search.name, name);
+                assert.strictEqual(search.properties().search, originalSearch);
+                assert.ok(!search.properties().description);
+                [job, search] = await search.dispatch({ force_dispatch: false, "dispatch.buckets": 295 });
+                assert.ok(job);
+                assert.ok(search);
+                await tutils.pollUntil(
+                    job,
+                    function (j) {
+                        return job.properties()["isDone"];
                     },
-                    function(job, search, done) {
-                        test.ok(job);
-                        test.ok(search);
-                        test.done();
-                    }]
-            );
-        },
+                    10
+                );
+                assert.strictEqual(job.properties().statusBuckets, 295);
+                let originalJob = job;
+                [jobs, search] = await search.history();
+                assert.ok(jobs);
+                assert.ok(jobs.length > 0);
+                assert.ok(search);
+                assert.ok(originalJob);
 
-        "Callback#history error": function(test) {
-            var name = "jssdk_savedsearch_" + getNextId();
-            var originalSearch = "search index=_internal | head 1";
-            var search = new splunkjs.Service.SavedSearch(
-                this.loggedOutService,
-                name,
-                {owner: "nobody", app: "search", sharing: "system"}
-            );
-            search.history(function(err) {
-                test.ok(err);
-                test.done();
-            });
-        },
-
-        "Callback#Update error": function(test) {
-            var name = "jssdk_savedsearch_" + getNextId();
-            var originalSearch = "search index=_internal | head 1";
-            var search = new splunkjs.Service.SavedSearch(
-                this.loggedOutService,
-                name,
-                {owner: "nobody", app: "search", sharing: "system"}
-            );
-            search.update(
-                {},
-                function(err) {
-                    test.ok(err);
-                    test.done();
-                });
-        },
-
-        "Callback#oneshot requires search string": function(test) {
-            test.throws(function() { this.service.oneshotSearch({name: "jssdk_oneshot_" + getNextId()}, function(err) {});});
-            test.done();
-        },
-
-        "Callback#Create + dispatch + history": function(test) {
-            var name = "jssdk_savedsearch_" + getNextId();
-            var originalSearch = "search index=_internal | head 1";
-
-            var searches = this.service.savedSearches({owner: this.service.username, app: "sdk-app-collection"});
-
-            Async.chain(
-                function(done) {
-                    searches.create({search: originalSearch, name: name}, done);
-                },
-                function(search, done) {
-                    test.ok(search);
-
-                    test.strictEqual(search.name, name);
-                    test.strictEqual(search.properties().search, originalSearch);
-                    test.ok(!search.properties().description);
-
-                    search.dispatch({force_dispatch: false, "dispatch.buckets": 295}, done);
-                },
-                function(job, search, done) {
-                    test.ok(job);
-                    test.ok(search);
-
-                    tutils.pollUntil(
-                        job,
-                        function(j) {
-                            return job.properties()["isDone"];
-                        },
-                        10,
-                        Async.augment(done, search)
-                    );
-                },
-                function(job, search, done) {
-                    test.strictEqual(job.properties().statusBuckets, 295);
-                    search.history(Async.augment(done, job));
-                },
-                function(jobs, search, originalJob, done) {
-                    test.ok(jobs);
-                    test.ok(jobs.length > 0);
-                    test.ok(search);
-                    test.ok(originalJob);
-
-                    var cancel = function(job) {
-                        return function(cb) {
-                            job.cancel(cb);
-                        };
+                let cancel = function (job) {
+                    return async function () {
+                        await job.cancel();
                     };
-
-                    var found = false;
-                    var cancellations = [];
-                    for(var i = 0; i < jobs.length; i++) {
-                        cancellations.push(cancel(jobs[i]));
-                        found = found || (jobs[i].sid === originalJob.sid);
-                    }
-
-                    test.ok(found);
-
-                    search.remove(function(err) {
-                        if (err) {
-                            done(err);
-                        }
-                        else {
-                            Async.parallel(cancellations, done);
-                        }
-                    });
-                },
-                function(err) {
-                    test.ok(!err);
-                    test.done();
+                };
+                let found = false;
+                let cancellations = [];
+                for (let i = 0; i < jobs.length; i++) {
+                    cancellations.push(cancel(jobs[i]));
+                    found = found || (jobs[i].sid === originalJob.sid);
                 }
-            );
-        },
+                assert.ok(found);
+                await search.remove();
+                await utils.parallel(cancellations);
+            })
 
-        "Callback#job events fails": function(test) {
-            var job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
-            job.events({}, function (err) {
-                test.ok(err);
-                test.done();
-            });
-        },
-
-        "Callback#job preview fails": function(test) {
-            var job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
-            job.preview({}, function(err) {
-                test.ok(err);
-                test.done();
-            });
-        },
-
-        "Callback#job results fails": function(test) {
-            var job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
-            job.results({}, function(err) {
-                test.ok(err);
-                test.done();
-            });
-        },
-
-        "Callback#job searchlog fails": function(test) {
-            var job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
-            job.searchlog(function(err) {
-                test.ok(err);
-                test.done();
-            });
-        },
-
-        "Callback#job summary fails": function(test) {
-            var job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
-            job.summary({}, function(err) {
-                test.ok(err);
-                test.done();
-            });
-        },
-
-        "Callback#job timeline fails": function(test) {
-            var job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
-            job.timeline({}, function(err) {
-                test.ok(err);
-                test.done();
-            });
-        },
-
-        "Callback#delete test saved searches": function(test) {
-            var searches = this.service.savedSearches({owner: this.service.username, app: "sdk-app-collection"});
-            searches.fetch(function(err, searches) {
-                var searchList = searches.list();
-                Async.parallelEach(
+            it("delete test saved searches", async function () {
+                let searches = this.service.savedSearches({ owner: this.service.username, app: "sdkappcollection" });
+                searches = await searches.fetch();
+                let searchList = searches.list();
+                let err = await utils.parallelEach(
                     searchList,
-                    function(search, idx, callback) {
+                    async function (search, idx,) {
                         if (utils.startsWith(search.name, "jssdk_")) {
-                            search.remove(callback);
+                            await search.remove();
                         }
-                        else {
-                            callback();
-                        }
-                    }, function(err) {
-                        test.ok(!err);
-                        test.done();
                     }
                 );
-            });
-        },
+                assert.ok(!err);
+            })
 
-        "Callback#setupInfo fails": function(test) {
-            var searches = new splunkjs.Service.Application(this.loggedOutService, "search");
-            searches.setupInfo(function(err, content, that) {
-                test.ok(err);
-                test.done();
-            });
-        },
-
-        "Callback#setupInfo succeeds": function(test) {
-            var app = new splunkjs.Service.Application(this.service, "sdk-app-collection");
-            app.setupInfo(function(err, content, app) {
-                // This error message was removed in modern versions of Splunk
-                if (err) {
-                    test.ok(err.data.messages[0].text.match("Setup configuration file does not"));
-                    splunkjs.Logger.log("ERR ---", err.data.messages[0].text);
+            it("Job events fails", async function () {
+                let job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
+                let res;
+                try {
+                    res = await job.events({});
+                } catch (err) {
+                    assert.ok(err);
                 }
-                else {
-                    test.ok(app);
+                assert.ok(!res);
+            })
+
+            it("Job preview fails", async function () {
+                let job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
+                try {
+                    job = await job.preview({});
+                } catch (err) {
+                    assert.ok(err);
                 }
-                test.done();
-            });
-        },
+            })
 
-        "Callback#updateInfo": function(test) {
-            var app = new splunkjs.Service.Application(this.service, "search");
-            app.updateInfo(function(err, info, app) {
-                test.ok(!err);
-                test.ok(app);
-                test.strictEqual(app.name, 'search');
-                test.done();
-            });
-        },
+            it("Job results fails", async function () {
+                let job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
+                try {
+                    job = await job.results({});
+                } catch (err) {
+                    assert.ok(err);
+                }
+            })
 
-        "Callback#updateInfo failure": function(test) {
-            var app = new splunkjs.Service.Application(this.loggedOutService, "sdk-app-collection");
-            app.updateInfo(function(err, info, app) {
-                test.ok(err);
-                test.done();
-            });
-        }
-    };
+            it("Job searchlog fails", async function () {
+                let job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
+                try {
+                    job = await job.searchlog();
+                } catch (err) {
+                    assert.ok(err);
+                }
+            })
+
+            it("Job summary fails", async function () {
+                let job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
+                try {
+                    job = await job.summary({});
+                } catch (err) {
+                    assert.ok(err);
+                }
+            })
+
+            it("Job timeline fails", async function () {
+                let job = new splunkjs.Service.Job(this.loggedOutService, "abc", {});
+                try {
+                    job = await job.timeline({});
+                } catch (err) {
+                    assert.ok(err);
+                }
+            })
+
+            it("SetupInfo succeeds", async function () {
+                let app = new splunkjs.Service.Application(this.service, "sdkappcollection");
+                let response = await app.setupInfo();
+                app = response[1];
+                assert.ok(app);
+            })
+
+            it("SetupInfo failure", async function () {
+                let searches = new splunkjs.Service.Application(this.loggedOutService, "search");
+                try {
+                    await searches.setupInfo();
+                } catch (err) {
+                    assert.ok(err);
+                }
+            })
+
+            it("UpdateInfo succeeds", async function () {
+                let app = new splunkjs.Service.Application(this.service, "search");
+                let response = await app.updateInfo();
+                app = response[1];
+                assert.ok(app);
+                assert.strictEqual(app.name, 'search');
+            })
+
+            it("UpdateInfo failure", async function () {
+                let app = new splunkjs.Service.Application(this.loggedOutService, "sdkappcollection");
+                try {
+                    await app.updateInfo();
+                } catch (err) {
+                    assert.ok(err);
+                }
+            })
+            
+            it("ACL update", async function() {
+                let name = "jssdk_savedsearch_test_acl1";
+                let originalSearch = "search * | head 1";
+
+                let searches = this.service.savedSearches({ owner: this.service.username, app: "sdkappcollection"});
+                let search = await searches.create({ search: originalSearch, name: name });
+                assert.ok(search);
+                let prop = search.acl();
+                assert.strictEqual(prop["sharing"], "user");
+                assert.strictEqual(prop["perms"], null);
+
+                search = await search.acl_update({sharing:"app",owner:"admin","perms.read":"admin"});
+                let updatedProp = search.acl();
+                assert.strictEqual(updatedProp["owner"], "admin");
+                assert.strictEqual(updatedProp["sharing"], "app");
+                assert.equal(updatedProp["perms"]["read"], "admin");
+                await search.remove();
+            })
+
+            it("ACL update fail without sharing", async function() {
+                let name = "jssdk_savedsearch_test_acl2";
+                let originalSearch = "search * | head 1";
+
+                let searches = this.service.savedSearches({ owner: this.service.username, app: "sdkappcollection"});
+                let search = await searches.create({ search: originalSearch, name: name });
+                assert.ok(search);
+                assert.throws(()=>{search.acl_update({owner:"admin"})}, "Required argument 'sharing' is missing.")
+                await search.remove();
+            })
+
+            it("ACL update fail without owner", async function() {
+                let name = "jssdk_savedsearch_test_acl3";
+                let originalSearch = "search * | head 1";
+
+                let searches = this.service.savedSearches({ owner: this.service.username, app: "sdkappcollection"});
+                let search = await searches.create({ search: originalSearch, name: name });
+                assert.ok(search);
+                assert.throws(()=>{search.acl_update({sharing:"app"})}, "Required argument 'owner' is missing.");
+                await search.remove();
+            })
+        })
+    );
 };
+
+if (module.id === __filename && module.parent.id.includes('mocha')) {
+    var splunkjs = require('../../index');
+    var options = require('../cmdline');
+
+    let cmdline = options.create().parse(process.argv);
+
+    // If there is no command line, we should return
+    if (!cmdline) {
+        throw new Error("Error in parsing command line parameters");
+    }
+
+    let svc = new splunkjs.Service({
+        scheme: cmdline.opts.scheme,
+        host: cmdline.opts.host,
+        port: cmdline.opts.port,
+        username: cmdline.opts.username,
+        password: cmdline.opts.password,
+        version: cmdline.opts.version
+    });
+
+    let loggedOutSvc = new splunkjs.Service({
+        scheme: cmdline.opts.scheme,
+        host: cmdline.opts.host,
+        port: cmdline.opts.port,
+        username: cmdline.opts.username,
+        password: cmdline.opts.password + 'wrong',
+        version: cmdline.opts.version
+    });
+
+    // Exports tests on a successful login
+    module.exports = new Promise(async (resolve, reject) => {
+        try {
+            await svc.login();
+            return resolve(exports.setup(svc, loggedOutSvc))
+        } catch (error) {
+            throw new Error("Login failed - not running tests", error || "");
+        }
+    });
+}

@@ -12,40 +12,41 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
-(function() {
+const { utils } = require('mocha');
+
+(function () {
     "use strict";
-    var Async = require('../lib/async');
-    
+    var utils = require('../lib/utils');
+
     var root = exports || this;
 
-    root.pollUntil = function(obj, condition, iterations, callback) {
-        callback = callback || function() {};
-        
-        var i = 0;
-        Async.whilst(
-            function() { return !condition(obj) && (i++ < iterations); },
-            function(done) {
-                Async.sleep(500, function() {
-                    obj.fetch(done); 
-                });
-            },
-            function(err) {
-                callback(err, obj);
-            }
-        );
+    root.pollUntil = async function (obj, condition, iterations) {
+
+        let i = 0;
+        try {
+            await utils.whilst(
+                function () { return !condition(obj) && (i++ < iterations); },
+                async function () {
+                    await utils.sleep(500);
+                    await obj.fetch();
+                }
+            );
+        } catch (error) {
+            throw error;
+        }
     };
-    
+
     // Minimal Http implementation that is designed to pass the tests
     // done by Context.init(), but nothing more.
     root.DummyHttp = {
         // Required by Context.init()
-        _setSplunkVersion: function(version) {
+        _setSplunkVersion: function (version) {
             // nothing
         }
     };
 
     var idCounter = 0;
-    root.getNextId = function() {
+    root.getNextId = function () {
         return "id" + (idCounter++) + "_" + ((new Date()).valueOf());
     };
 

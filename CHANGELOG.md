@@ -1,4 +1,84 @@
-# Splunk SDK for JavaScript Changelog
+# Splunk Enterprise SDK for JavaScript Changelog
+
+## v2.0.0
+
+### New features and APIs
+* Callbacks have been removed and instead we are returning Promises which enables users to use Async/Await features of JS. ([PR#162](https://github.com/splunk/splunk-sdk-javascript/pull/162)) 
+* Added 'response_timeout' parameter which enables user to specify the timeout for a particular API call.
+* Removed Async.js file and the required methods have been migrated to Utils.js following the Promise structure.
+
+### Minor changes
+* Update doc generation logic in GitHub ci ([PR#167](https://github.com/splunk/splunk-sdk-javascript/pull/167))
+* Updated minimist library versions ([PR#166](https://github.com/splunk/splunk-sdk-javascript/pull/166))
+* Added feature that allows to update ACL properties of an entity ([PR#170](https://github.com/splunk/splunk-sdk-javascript/pull/170))
+* Support for updated SDK examples ([PR#171](https://github.com/splunk/splunk-sdk-javascript/pull/171))
+
+## v1.12.1
+
+### Minor changes
+* Special handling related to the semantic versioning of specific Search APIs functional in Splunk Enterprise 9.0.2 and (Splunk Cloud 9.0.2209). These SDK changes will enable seamless transition between the APIs based on the version of the Splunk Enterprise in use ([PR#163](https://github.com/splunk/splunk-sdk-javascript/pull/163))
+* added checks for wildcards in StoragePasswords ([PR#156](https://github.com/splunk/splunk-sdk-javascript/pull/156))
+* Update release docs path in release.yml ([PR#161](https://github.com/splunk/splunk-sdk-javascript/pull/161))
+
+## v1.12.0
+
+### New features and APIs
+* SDK Support for splunkd search API changes, for Splunk 9.0+. ([PR#157](https://github.com/splunk/splunk-sdk-javascript/pull/157))
+
+### Minor changes
+* Added assets directory to be included while generating docs ([PR#154](https://github.com/splunk/splunk-sdk-javascript/pull/154))
+* Removed support for Modular Inputs from the SDK ([PR#153](https://github.com/splunk/splunk-sdk-javascript/pull/153))
+* Removed examples and it's references from sdk ([PR#152](https://github.com/splunk/splunk-sdk-javascript/pull/152))
+* Added 'User-Agent' header in REST API calls for the telemetry ([PR#151](https://github.com/splunk/splunk-sdk-javascript/pull/151))
+* changes corresponding to API changes in the dependency library browserify ([PR#149](https://github.com/splunk/splunk-sdk-javascript/pull/149))
+* JS SDK upload artifact script added for api docs ([PR#148](https://github.com/splunk/splunk-sdk-javascript/pull/148))
+
+## v1.11.0
+
+### Major changes
+* DVPL-9708 apps/local support ([PR#135](https://github.com/splunk/splunk-sdk-javascript/pull/135))
+* .conf CRUD functionality added ([PR#141](https://github.com/splunk/splunk-sdk-javascript/pull/141))
+### Minor changes
+* NodeUnit to Mocha Transition for Browser Test Cases ([PR#127](https://github.com/splunk/splunk-sdk-javascript/pull/127))
+* Login example and README.md change ([PR#138](https://github.com/splunk/splunk-sdk-javascript/pull/138))
+* Add pagination support to history calls ([PR#95](https://github.com/splunk/splunk-sdk-javascript/pull/95))
+* Changes for savedsearch history pagination ([PR#139](https://github.com/splunk/splunk-sdk-javascript/pull/139))
+* Add create-react-app browser example ([PR#99](https://github.com/splunk/splunk-sdk-javascript/pull/99))
+* Support added for output_mode for oneShotSearch ([PR#140](https://github.com/splunk/splunk-sdk-javascript/pull/140))
+* Updated Highcharts License. ([PR#119](https://github.com/splunk/splunk-sdk-javascript/pull/119))
+* package-lock.json updated ([PR#137](https://github.com/splunk/splunk-sdk-javascript/pull/137))
+* WIP: Stabilize CI/CD ([PR#115](https://github.com/splunk/splunk-sdk-javascript/pull/115))
+* Dependency updates ([PR#145](https://github.com/splunk/splunk-sdk-javascript/pull/145))
+
+## v1.10.0
+
+### Major changes
+* Dropped support for deprecated request http client.
+* Added support for [needle](https://www.npmjs.com/package/needle) http client library.
+
+### Minor changes
+
+* Added support for Splunk Enterprise 8.2
+* Added support for Node v14.
+* Dropped support for deprecated nodeunit testing library.
+* Added support for [mocha](https://www.npmjs.com/package/mocha) for testing and [chai](https://www.npmjs.com/package/chai) for assertions.
+* Updated `cookie` dependency version to `0.4.1` 
+* Updated `elementtree` dependency version to `0.1.7`
+* Updated `browserify` dependency version to `17.0.0`
+* Updated `jshint` dependency version to `2.13.0`
+* Updated `mustache` dependency version to `4.2.0`
+* Updated `readable-stream` dependency version to `3.6.0`
+* Updated `uglify-js` dependency version to `3.13.8`
+* Added support for `dotenv@10.0.0` to declared env variables.
+* Added support for `mochawesome@6.2.2` to generate test report.
+* Fixed the Buffer and new Buffer() deprecation warnings appeared when running the tests.
+* Added support for running single test file and test case. Run `make test_specific` for more info.
+
+## v1.9.1
+
+### Minor changes
+
+* Added third party credits file (CREDITS.md) and updated support and contributing documentation.
 
 ## v1.9.0
 
@@ -173,7 +253,7 @@ across all versions of Splunk.
 
 ### New features and APIs
 
-* The Splunk SDK for JavaScript now supports Node.js v0.8.x and v0.10.x
+* The Splunk Enterprise SDK for JavaScript now supports Node.js v0.8.x and v0.10.x
 
 * Add back general JQuery HTTP implementation.
 
@@ -181,7 +261,7 @@ across all versions of Splunk.
 
 ### Breaking changes
 
-* The Splunk SDK for JavaScript no longer supports Node.js v0.6.x
+* The Splunk Enterprise SDK for JavaScript no longer supports Node.js v0.6.x
 
 * Updated the Node.js request module dependency to v2.21.1
 
@@ -250,11 +330,11 @@ across all versions of Splunk.
   `splunkjs.JobManager.{events|results|preview}Iterator` methods.
 
 * A new "hello-world"-style code example, `log.js`, has been added to show how
-  to do simple application logging using the Splunk SDK for JavaScript.
+  to do simple application logging using the Splunk Enterprise SDK for JavaScript.
 
 ### Breaking changes
 
-* The easyXDM library is no longer included with the Splunk SDK for JavaScript
+* The easyXDM library is no longer included with the Splunk Enterprise SDK for JavaScript
   because this library was not being used, and could not work with a Splunk
   instance that had a self-signed SSL certificate.
 

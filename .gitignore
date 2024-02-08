@@ -1,4 +1,4 @@
-*build/
+build/
 .git
 tests/html/*
 *.out
@@ -19,3 +19,4 @@ cover_html
 test_logs/*
 docs/
 node_modules/
+.nyc_output/*

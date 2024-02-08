@@ -15,10 +15,16 @@
 
 (function() {
     var root = exports || this;
+    var env = require("dotenv").config();
 
     // Declare a process environment so that we can set
     // some globals here and have interop with node
-    process.env = process.env || {};
+    try {
+        process.env = process.env || {};
+    } catch (e) {
+        // Depending on the browser implementation process.env may not
+        // be assignable but still accessible, ignore these errors
+    }
 
     module.exports = root = {
         Logger          : require('./lib/log').Logger,
@@ -26,13 +32,17 @@
         Service         : require('./lib/service'),
         Http            : require('./lib/http'),
         Utils           : require('./lib/utils'),
-        Async           : require('./lib/async'),
         Paths           : require('./lib/paths').Paths,
-        Class           : require('./lib/jquery.class').Class,
-        ModularInputs   : require('./lib/modularinputs')
+        Class           : require('./lib/jquery.class').Class
     };
     
     if (typeof(window) === 'undefined') {
         root.NodeHttp = require('./lib/platform/node/node_http').NodeHttp;
+    } else {
+        let jqueryHttp    = require('./lib/platform/client/jquery_http').JQueryHttp; 
+        let proxyHttps    = require('./lib/platform/client/proxy_http');
+        root.ProxyHttp     = proxyHttps.ProxyHttp;
+        root.JQueryHttp    = jqueryHttp;
+        root.SplunkWebHttp = proxyHttps.SplunkWebHttp;
     }
 })();

@@ -1,126 +1,101 @@
-var splunkjs    = require('../../index');
-var Async       = splunkjs.Async;
 
-var idCounter = 0;
-var getNextId = function() {
-    return "id" + (idCounter++) + "_" + ((new Date()).valueOf());
-};
+exports.setup = function (svc) {
+    var assert = require('chai').assert;
 
-module.exports = function (svc) {
-    return {
-        setUp: function(done) {
-            this.service = svc;
-            done();
-        },
+    var splunkjs = require('../../index');
+    var idCounter = 0;
 
-        "Callback#list": function(test) {
-            var that = this;
-            var namespace = {owner: "admin", app: "search"};
-
-            Async.chain([
-                    function(done) {
-                        that.service.configurations(namespace).fetch(done);
-                    },
-                    function(props, done) {
-                        var files = props.list();
-                        test.ok(files.length > 0);
-                        done();
-                    }
-                ],
-                function(err) {
-                    test.ok(!err);
-                    test.done();
-                });
-        },
-
-        "Callback#item": function(test) {
-            var that = this;
-            var namespace = {owner: "admin", app: "search"};
-
-            Async.chain([
-                    function(done) { that.service.configurations(namespace).fetch(done); },
-                    function(props, done) {
-                        var file = props.item("web");
-                        test.ok(file);
-                        file.fetch(done);
-                    },
-                    function(file, done) {
-                        test.strictEqual(file.name, "web");
-                        done();
-                    }
-                ],
-                function(err) {
-                    test.ok(!err);
-                    test.done();
-                });
-        },
-
-        "Callback#contains stanza": function(test) {
-            var that = this;
-            var namespace = {owner: "admin", app: "search"};
-
-            Async.chain([
-                    function(done) { that.service.configurations(namespace).fetch(done); },
-                    function(props, done) {
-                        var file = props.item("web");
-                        test.ok(file);
-                        file.fetch(done);
-                    },
-                    function(file, done) {
-                        test.strictEqual(file.name, "web");
-                        var stanza = file.item("settings");
-                        test.ok(stanza);
-                        stanza.fetch(done);
-                    },
-                    function(stanza, done) {
-                        test.ok(stanza.properties().hasOwnProperty("httpport"));
-                        done();
-                    }
-                ],
-                function(err) {
-                    test.ok(!err);
-                    test.done();
-                });
-        },
-
-        "Callback#create file + create stanza + update stanza": function(test) {
-            var that = this;
-            var fileName = "jssdk_file_" + getNextId();
-            var value = "barfoo_" + getNextId();
-            var namespace = {owner: "admin", app: "search"};
-
-            Async.chain([
-                    function(done) {
-                        var properties = that.service.configurations(namespace);
-                        properties.fetch(done);
-                    },
-                    function(properties, done) {
-                        properties.create(fileName, done);
-                    },
-                    function(file, done) {
-                        file.create("stanza", done);
-                    },
-                    function(stanza, done) {
-                        stanza.update({"jssdk_foobar": value}, done);
-                    },
-                    function(stanza, done) {
-                        test.strictEqual(stanza.properties()["jssdk_foobar"], value);
-                        done();
-                    },
-                    function(done) {
-                        var file = new splunkjs.Service.ConfigurationFile(svc, fileName);
-                        file.fetch(done);
-                    },
-                    function(file, done) {
-                        var stanza = file.item("stanza");
-                        test.ok(stanza);
-                        stanza.remove(done);
-                    }
-                ],
-                function(err) {
-                    test.ok(!err);
-                    test.done();
-                });
-        }
+    var getNextId = function () {
+        return "id" + (idCounter++) + "_" + ((new Date()).valueOf());
     };
+    return (
+        describe("Properties Tests", () => {
+
+            beforeEach(function () {
+                this.service = svc;
+            })
+
+            it("List", async function () {
+                var that = this;
+                let namespace = { owner: "admin", app: "search" };
+                let props = await that.service.configurations(namespace).fetch();
+                let files = props.list();
+                assert.ok(files.length > 0);
+            })
+
+            it("Item", async function () {
+                var that = this;
+                let namespace = { owner: "admin", app: "search" };
+                let props = await that.service.configurations(namespace).fetch();
+                let file = props.item("web");
+                assert.ok(file);
+                file = await file.fetch();
+                assert.strictEqual(file.name, "web");
+            })
+
+            it("Contains stanza", async function () {
+                var that = this;
+                let namespace = { owner: "admin", app: "search" };
+                let props = await that.service.configurations(namespace).fetch();
+                let file = props.item("web");
+                assert.ok(file);
+                file = await file.fetch();
+                assert.strictEqual(file.name, "web");
+                let stanza = file.item("settings");
+                assert.ok(stanza);
+                stanza = await stanza.fetch();
+                assert.ok(stanza.properties().hasOwnProperty("httpport"));
+            })
+
+            it("Create file, create stanza and update stanza", async function () {
+                var that = this;
+                let fileName = "jssdk_file_" + getNextId();
+                let value = "barfoo_" + getNextId();
+                let namespace = { owner: "admin", app: "search" };
+                let properties = await that.service.configurations(namespace).fetch();
+                let file = await properties.create(fileName);
+                let stanza = await file.create("stanza");
+                stanza = await stanza.update({ "jssdk_foobar": value });
+                assert.strictEqual(stanza.properties()["jssdk_foobar"], value);
+
+                let configFile = new splunkjs.Service.ConfigurationFile(svc, fileName);
+                file = await configFile.fetch();
+                stanza = file.item("stanza");
+                assert.ok(stanza);
+                await stanza.remove();
+            })
+        })
+    );
 };
+
+if (module.id === __filename && module.parent.id.includes('mocha')) {
+    var splunkjs = require('../../index');
+    var options = require('../cmdline');
+
+    let cmdline = options.create().parse(process.argv);
+
+    // If there is no command line, we should return
+    if (!cmdline) {
+        throw new Error("Error in parsing command line parameters");
+    }
+
+    let svc = new splunkjs.Service({
+        scheme: cmdline.opts.scheme,
+        host: cmdline.opts.host,
+        port: cmdline.opts.port,
+        username: cmdline.opts.username,
+        password: cmdline.opts.password,
+        version: cmdline.opts.version
+    });
+
+    // Exports tests on a successful login
+    module.exports = new Promise(async (resolve, reject) => {
+        try {
+            await svc.login();
+            return resolve(exports.setup(svc))
+        } catch (error) {
+            throw new Error("Login failed - not running tests", error || "");
+        }
+    });
+}
+
