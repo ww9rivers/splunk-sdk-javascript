@@ -1,6 +1,6 @@
 {
     "name": "splunk-sdk",
-    "version": "2.0.0",
+    "version": "2.0.2",
     "description": "SDK for usage with the Splunk REST API",
     "homepage": "http://dev.splunk.com",
     "main": "index.js",
@@ -23,7 +23,7 @@
         "test": "nyc mocha tests/tests.js -t 50000 --allow-uncaught --exit --reporter mochawesome"
     },
     "dependencies": {
-        "cookie": "0.4.2",
+        "cookie": "0.7.0",
         "dotenv": "16.0.0",
         "elementtree": "0.1.7",
         "needle": "3.0.0"
